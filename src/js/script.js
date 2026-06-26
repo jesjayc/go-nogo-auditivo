@@ -49,6 +49,7 @@ const INTERVAL_TIME = 1500;
 const TEST_WORDS = ["sim", "pe", "dor"];
 
 let state = {
+    stage: 'AUDIO_TEST',
     currentIdx: 0,
     results: [],
     seq: [],
@@ -70,11 +71,25 @@ const ABORT_CODE = "end42";
 let abortBuffer = "";
 let abortBufferTimer = null;
 
-function showScreen(id) {
+// --- RENDERIZADOR CENTRAL ---
+function render() {
     document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
+
+    if (state.stage === 'AUDIO_TEST') {
+        document.getElementById('screen-audio-test').classList.remove('hidden');
+    } else if (state.stage === 'INSTRUCTIONS') {
+        document.getElementById('screen-instructions').classList.remove('hidden');
+    } else if (state.stage === 'POST_TRIAL') {
+        document.getElementById('screen-post-trial').classList.remove('hidden');
+        startCoolDown(); // Inicia o timer de 10s automaticamente ao renderizar
+    } else if (state.stage === 'TESTING') {
+        document.getElementById('screen-test-area').classList.remove('hidden');
+    } else if (state.stage === 'RESULTS') {
+        document.getElementById('screen-results').classList.remove('hidden');
+    }
 }
 
+// --- SETUP DO GRID DE ÁUDIO ---
 const audioGrid = document.getElementById('audio-options');
 const audioList = ["sim", "nos", "rei", "pe", "chao", "faz", "luz", "dor", "pao", "cor"];
 
@@ -85,17 +100,33 @@ audioList.forEach(word => {
     btn.innerText = WORD_LABELS[word] || word;
     btn.onclick = () => {
         btn.classList.toggle('selected');
-        checkAudioSelection();
+        checkAudioTest();
     };
     audioGrid.appendChild(btn);
 });
 
-function checkAudioSelection() {
-    const selected = new Set(
-        [...document.querySelectorAll('#audio-options .btn-opt.selected')].map(b => b.dataset.word)
-    );
-    const correct = TEST_WORDS.length === selected.size && TEST_WORDS.every(w => selected.has(w));
-    document.getElementById('btn-start-instructions').classList.toggle('hidden', !(audioPlayed && correct));
+function checkAudioTest() {
+    const selectedNodes = document.querySelectorAll('#audio-options .btn-opt.selected');
+    const selected = new Set([...selectedNodes].map(b => b.dataset.word));
+    const feedback = document.getElementById('audio-test-feedback');
+    const btnNext = document.getElementById('btn-start-instructions');
+
+    if (selectedNodes.length === TEST_WORDS.length) {
+        const correct = TEST_WORDS.every(w => selected.has(w));
+        
+        if (correct && audioPlayed) {
+            feedback.textContent = 'Perfeito! Áudio validado.';
+            feedback.style.color = 'var(--go-green)';
+            btnNext.classList.remove('hidden');
+        } else {
+            feedback.textContent = 'Incorreto. Ouça novamente e selecione as 3 palavras corretas.';
+            feedback.style.color = 'var(--nogo-red)';
+            btnNext.classList.add('hidden');
+        }
+    } else {
+        feedback.textContent = '';
+        btnNext.classList.add('hidden');
+    }
 }
 
 function playSequentially(sounds, idx, onDone) {
@@ -106,74 +137,121 @@ function playSequentially(sounds, idx, onDone) {
     audio.play().catch(() => playSequentially(sounds, idx + 1, onDone));
 }
 
+// --- CENTRAL DE COMANDOS (Super Listener) ---
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    const code = e.code;
+
+    // 1. Código de Abortar
+    if (key.length === 1 && /[a-z0-9]/i.test(key)) {
+        abortBuffer = (abortBuffer + key).slice(-ABORT_CODE.length);
+        clearTimeout(abortBufferTimer);
+        abortBufferTimer = setTimeout(() => { abortBuffer = ""; }, 2000);
+        if (abortBuffer === ABORT_CODE) {
+            abortBuffer = "";
+            abortTest();
+            return;
+        }
+    }
+
+    if (code !== 'Space') return;
+    e.preventDefault();
+
+    // Bloqueio de Navegação (Cooldown / Escudos)
+    if (state.lockNavigation) return; 
+
+    // 2. Resposta do Teste
+    if (state.stage === 'TESTING') {
+        if (state.testActive && !state.hasResponded && state.presentationWindowOpen) {
+            const rt = Date.now() - state.reactionStartTime;
+            state.hasResponded = true;
+            recordData(true, rt);
+        }
+        return;
+    }
+
+    // 3. Navegação
+    if (!state.isRunning) {
+        if (state.stage === 'AUDIO_TEST') {
+            const btn = document.getElementById('btn-start-instructions');
+            if (btn && btn.offsetParent !== null && !btn.classList.contains('hidden')) {
+                btn.click();
+            }
+        } else if (state.stage === 'INSTRUCTIONS') {
+            startPhase(false); // Inicia Treino
+        } else if (state.stage === 'POST_TRIAL') {
+            startPhase(true); // Inicia Oficial
+        }
+    }
+}, true);
+
+
+// --- FLUXO DE TELAS E CLIQUES DE BOTÃO ---
 document.getElementById('btn-play-test').onclick = () => {
     if (audioPlayingTest) return;
+    
+    const btnPlay = document.getElementById('btn-play-test');
+    
     audioPlayingTest = true;
-    document.getElementById('btn-play-test').disabled = true;
+    btnPlay.disabled = true;
+    btnPlay.innerHTML = '⏳ Reproduzindo...'; // Muda para a ampulheta
+
     playSequentially(TEST_WORDS, 0, () => {
         audioPlayingTest = false;
-        document.getElementById('btn-play-test').disabled = false;
+        btnPlay.disabled = false;
+        btnPlay.innerHTML = '▶ REPRODUZIR NOVAMENTE'; // Retorna com o novo texto
         audioPlayed = true;
-        checkAudioSelection();
+        checkAudioTest();
     });
 };
 
 document.getElementById('btn-start-instructions').onclick = () => {
-    showScreen('screen-instructions');
+    state.stage = 'INSTRUCTIONS';
+    render();
 };
 
-document.getElementById('btn-start-test').onclick = startTrialPhase;
+document.getElementById('btn-start-test').onclick = () => {
+    if (!state.lockNavigation) startPhase(false);
+};
+
 document.getElementById('btn-start-official').onclick = () => {
-    if (!state.lockNavigation && !state.isRunning) startOfficialPhase();
+    if (!state.lockNavigation) startPhase(true);
 };
 
-window.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space') return;
-
-    if (state.testActive && !state.hasResponded && state.presentationWindowOpen) {
-        e.preventDefault();
-        const rt = Date.now() - state.reactionStartTime;
-        state.hasResponded = true;
-        recordData(true, rt);
-        return;
-    }
-
-    if (state.isRunning) return;
-
-    if (!document.getElementById('screen-instructions').classList.contains('hidden')) {
-        e.preventDefault();
-        startTrialPhase();
-        return;
-    }
-
-    if (!document.getElementById('screen-post-trial').classList.contains('hidden') && !state.lockNavigation) {
-        e.preventDefault();
-        startOfficialPhase();
-    }
-});
-
-function startTrialPhase() {
-    if (state.isRunning) return;
-    state.seq = SEQ_TRIAL;
-    state.isOfficial = false;
+// --- NÚCLEO DO TESTE (com textinho - funciona como escudo - de "Prepare-se") ---
+function startPhase(isOfficial) {
+    state.seq = isOfficial ? SEQ_OFICIAL : SEQ_TRIAL;
+    state.isOfficial = isOfficial;
     state.currentIdx = 0;
     state.results = [];
     state.isRunning = true;
     state.aborted = false;
-    showScreen('screen-test-area');
-    setTimeout(startMainTest, 2000);
-}
+    state.stage = 'TESTING';
+    render();
 
-function startOfficialPhase() {
-    if (state.isRunning) return;
-    state.seq = SEQ_OFICIAL;
-    state.isOfficial = true;
-    state.currentIdx = 0;
-    state.results = [];
-    state.isRunning = true;
-    state.aborted = false;
-    showScreen('screen-test-area');
-    setTimeout(startMainTest, 2000);
+    // Aciona o texto "Prepare-se"
+    const shield = document.getElementById('prepare-shield');
+    const icon = document.getElementById('audio-icon-test');
+    
+    if (shield && icon) {
+        shield.style.display = 'block';
+        icon.style.display = 'none';
+    }
+
+    // Bloqueia o teclado até o áudio realmente começar
+    state.lockNavigation = true; 
+
+    setTimeout(() => {
+        if (state.aborted) return;
+        
+        if (shield && icon) {
+            shield.style.display = 'none';
+            icon.style.display = 'block';
+        }
+        
+        state.lockNavigation = false;
+        startMainTest();
+    }, 2000); // 2 segundos de "escudo" visual
 }
 
 function startMainTest() {
@@ -222,11 +300,51 @@ function finishTest() {
     state.isRunning = false;
     currentAudio = null;
 
+    // Escudo Pós-Teste (Bloqueia o ESPAÇO por 1.5s contra ansiedade/reflexo do paciente)
+    state.lockNavigation = true;
+    setTimeout(() => {
+        // Se já tiver ido para o POST_TRIAL, o startCoolDown() assume o controle
+        if (state.stage !== 'POST_TRIAL') {
+            state.lockNavigation = false; 
+        }
+    }, 1500);
+
     if (state.isOfficial) {
-        showScreen('screen-results');
+        state.stage = 'RESULTS';
+        render();
     } else {
-        startCoolDown();
+        state.stage = 'POST_TRIAL';
+        render(); // O render acionará o startCoolDown automaticamente
     }
+}
+
+function startCoolDown() {
+    state.lockNavigation = true;
+    const btnOfficial = document.getElementById('btn-start-official');
+    let timer = 10;
+    
+    btnOfficial.disabled = true;
+    btnOfficial.style.opacity = "0.5";
+    btnOfficial.innerText = `AGUARDE (${timer}s)`;
+
+    const countdown = setInterval(() => {
+        // Interrompe se o teste for abortado durante o cooldown
+        if (state.aborted || state.stage !== 'POST_TRIAL') {
+            clearInterval(countdown);
+            return; 
+        }
+
+        timer--;
+        btnOfficial.innerText = `AGUARDE (${timer}s)`;
+        
+        if (timer <= 0) {
+            clearInterval(countdown);
+            state.lockNavigation = false;
+            btnOfficial.disabled = false;
+            btnOfficial.style.opacity = "1";
+            btnOfficial.innerText = "INICIAR OFICIAL (ESPAÇO)";
+        }
+    }, 1000);
 }
 
 function abortTest() {
@@ -235,53 +353,25 @@ function abortTest() {
     state.testActive = false;
     state.presentationWindowOpen = false;
     state.isRunning = false;
+    state.lockNavigation = false;
+    
     if (currentAudio) {
         currentAudio.onended = null;
         currentAudio.onerror = null;
         try { currentAudio.pause(); } catch (_) {}
         currentAudio = null;
     }
+    
     if (!state.results.length) {
         location.reload();
         return;
     }
-    showScreen('screen-results');
+    
+    state.stage = 'RESULTS';
+    render();
 }
 
-window.addEventListener('keydown', (e) => {
-    if (e.key.length !== 1 || !/[a-z0-9]/i.test(e.key)) return;
-    abortBuffer = (abortBuffer + e.key.toLowerCase()).slice(-ABORT_CODE.length);
-    clearTimeout(abortBufferTimer);
-    abortBufferTimer = setTimeout(() => { abortBuffer = ""; }, 2000);
-    if (abortBuffer === ABORT_CODE) {
-        abortBuffer = "";
-        abortTest();
-    }
-});
-
-function startCoolDown() {
-    state.lockNavigation = true;
-    showScreen('screen-post-trial');
-
-    const btnOfficial = document.getElementById('btn-start-official');
-    let timer = 10;
-    btnOfficial.disabled = true;
-    btnOfficial.style.opacity = "0.5";
-    btnOfficial.innerText = `AGUARDE (${timer}s)`;
-
-    const countdown = setInterval(() => {
-        timer--;
-        btnOfficial.innerText = `AGUARDE (${timer}s)`;
-        if (timer <= 0) {
-            clearInterval(countdown);
-            state.lockNavigation = false;
-            btnOfficial.disabled = false;
-            btnOfficial.style.opacity = "1";
-            btnOfficial.innerText = "ESPAÇO";
-        }
-    }, 1000);
-}
-
+// --- GERAÇÃO DE CSV ---
 function downloadCSV() {
     const fields = ['indice', 'palavra', 'tipo', 'pressionou', 'tempo_reacao_ms', 'status'];
     const rows = state.results.map((r, i) => [
@@ -307,3 +397,5 @@ function downloadCSV() {
 }
 
 document.getElementById('btn-download-csv').onclick = downloadCSV;
+
+render();
