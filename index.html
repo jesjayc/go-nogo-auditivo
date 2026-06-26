@@ -17,10 +17,10 @@
                 <button id="btn-play-test" class="btn-main" style="background: var(--border); color: var(--text); padding: 10px 30px; font-size: 1rem; margin-bottom: 15px;">▶ Reproduzir Áudio</button>
                 
                 <div id="audio-options" class="options-grid"></div>
-                <p id="audio-test-feedback"></p>
+                <p id="audio-test-feedback" style="font-weight: bold; min-height: 24px; margin-bottom: 15px;"></p>
                 
                 <div style="margin-top: 25px;">
-                    <button id="btn-start-instructions" class="btn-main hidden" style="background: var(--cyan); color: #000;">TUDO CERTO! VER INSTRUÇÕES</button>
+                    <button id="btn-start-instructions" class="btn-main hidden" style="background: var(--cyan); color: #000;">TUDO CERTO! VER INSTRUÇÕES (ESPAÇO)</button>
                 </div>
             </div>
         </section>
@@ -72,7 +72,10 @@
         </section>
 
         <section id="screen-test-area" class="screen hidden test-mode">
-            <div class="audio-icon">🔊</div>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <h1 id="prepare-shield" style="color: var(--cyan); font-size: 3.5rem; display: none; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">Prepare-se...</h1>
+                <div id="audio-icon-test" class="audio-icon">🔊</div>
+            </div>
         </section>
 
         <section id="screen-results" class="screen hidden">
