@@ -71,10 +71,18 @@
             </div>
         </section>
 
-        <section id="screen-test-area" class="screen hidden test-mode">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <h1 id="prepare-shield" style="color: var(--cyan); font-size: 3.5rem; display: none; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">Prepare-se...</h1>
-                <div id="audio-icon-test" class="audio-icon">🔊</div>
+        <section id="screen-test-area" class="screen hidden" style="max-width: 100%;">
+            
+            <!-- injetamos as larguras de 95vw e 1350px do Span Auditivo direto no card -->
+            <div class="card" style="width: 95vw; max-width: 1350px; min-height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">  
+                <!-- Tela de Prepare-se (Pulsante) -->
+                <div id="prepare-shield" class="animate-pulse" style="display: none;">
+                    <h2 class="title" style="font-size: 3rem; margin: 0;">Prepare-se!</h2>
+                </div>
+                <!-- Tela do Alto-Falante (Pulsante e Ciano) -->
+                <div id="audio-icon-test" style="display: none;">
+                    <div class="speaker-emoji animate-pulse">🔊</div>
+                </div>
             </div>
         </section>
 
