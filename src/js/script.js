@@ -342,7 +342,7 @@ function startCoolDown() {
             state.lockNavigation = false;
             btnOfficial.disabled = false;
             btnOfficial.style.opacity = "1";
-            btnOfficial.innerText = "INICIAR OFICIAL (ESPAÇO)";
+            btnOfficial.innerText = "COMEÇAR ETAPA OFICIAL (ESPAÇO)";
         }
     }, 1000);
 }
