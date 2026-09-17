@@ -45,11 +45,11 @@ const WORD_LABELS = {
     "vos": "Vós"
 };
 
-const INTERVAL_TIME = 1000;
-const TEST_WORDS = ["sim", "pe", "dor"];
+const INTERVAL_TIME = 1000
+const TEST_WORDS = ["sim", "pe", "dor"]
 
 let state = {
-    stage: 'AUDIO_TEST',
+    stage: "AUDIO_TEST",
     currentIdx: 0,
     results: [],
     seq: [],
@@ -60,342 +60,366 @@ let state = {
     hasResponded: false,
     testActive: false,
     presentationWindowOpen: false,
-    aborted: false
-};
+    aborted: false,
+}
 
-let audioPlayingTest = false;
-let audioPlayed = false;
-let currentAudio = null;
+let audioPlayingTest = false
+let audioPlayed = false
+let currentAudio = null
 
-const ABORT_CODE = "end42";
-let abortBuffer = "";
-let abortBufferTimer = null;
+const ABORT_CODE = "end42"
+let abortBuffer = ""
+let abortBufferTimer = null
 
 // --- RENDERIZADOR CENTRAL ---
 function render() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"))
 
-    if (state.stage === 'AUDIO_TEST') {
-        document.getElementById('screen-audio-test').classList.remove('hidden');
-    } else if (state.stage === 'INSTRUCTIONS') {
-        document.getElementById('screen-instructions').classList.remove('hidden');
-    } else if (state.stage === 'POST_TRIAL') {
-        document.getElementById('screen-post-trial').classList.remove('hidden');
-        startCoolDown(); // Inicia o timer de 10s automaticamente ao renderizar
-    } else if (state.stage === 'TESTING') {
-        document.getElementById('screen-test-area').classList.remove('hidden');
-    } else if (state.stage === 'RESULTS') {
-        document.getElementById('screen-results').classList.remove('hidden');
+    if (state.stage === "AUDIO_TEST") {
+        document.getElementById("screen-audio-test").classList.remove("hidden")
+    } else if (state.stage === "INSTRUCTIONS") {
+        document.getElementById("screen-instructions").classList.remove("hidden")
+    } else if (state.stage === "POST_TRIAL") {
+        document.getElementById("screen-post-trial").classList.remove("hidden")
+        startCoolDown() // Inicia o timer de 10s automaticamente ao renderizar
+    } else if (state.stage === "TESTING") {
+        document.getElementById("screen-test-area").classList.remove("hidden")
+    } else if (state.stage === "RESULTS") {
+        document.getElementById("screen-results").classList.remove("hidden")
     }
 }
 
 // --- SETUP DO GRID DE ÁUDIO ---
-const audioGrid = document.getElementById('audio-options');
-const audioList = ["sim", "nos", "rei", "pe", "chao", "faz", "luz", "dor", "pao", "cor"];
+const audioGrid = document.getElementById("audio-options")
+const audioList = ["sim", "nos", "rei", "pe", "chao", "faz", "luz", "dor", "pao", "cor"]
 
 audioList.forEach(word => {
-    const btn = document.createElement('div');
-    btn.className = 'btn-opt';
-    btn.dataset.word = word;
-    btn.innerText = WORD_LABELS[word] || word;
+    const btn = document.createElement("div")
+    btn.className = "btn-opt"
+    btn.dataset.word = word
+    btn.innerText = WORD_LABELS[word] || word
     btn.onclick = () => {
-        btn.classList.toggle('selected');
-        checkAudioTest();
-    };
-    audioGrid.appendChild(btn);
-});
+        btn.classList.toggle("selected")
+        checkAudioTest()
+    }
+    audioGrid.appendChild(btn)
+})
 
 function checkAudioTest() {
-    const selectedNodes = document.querySelectorAll('#audio-options .btn-opt.selected');
-    const selected = new Set([...selectedNodes].map(b => b.dataset.word));
-    const feedback = document.getElementById('audio-test-feedback');
-    const btnNext = document.getElementById('btn-start-instructions');
+    const selectedNodes = document.querySelectorAll("#audio-options .btn-opt.selected")
+    const selected = new Set([...selectedNodes].map(b => b.dataset.word))
+    const feedback = document.getElementById("audio-test-feedback")
+    const btnNext = document.getElementById("btn-start-instructions")
 
     if (selectedNodes.length === TEST_WORDS.length) {
-        const correct = TEST_WORDS.every(w => selected.has(w));
-        
+        const correct = TEST_WORDS.every(w => selected.has(w))
+
         if (correct && audioPlayed) {
-            feedback.textContent = 'Perfeito! Áudio validado.';
-            feedback.style.color = 'var(--go-green)';
-            btnNext.classList.remove('hidden');
+            feedback.textContent = "Perfeito! Áudio validado."
+            feedback.style.color = "var(--go-green)"
+            btnNext.classList.remove("hidden")
         } else {
-            feedback.textContent = 'Incorreto. Ouça novamente e selecione as 3 palavras corretas.';
-            feedback.style.color = 'var(--nogo-red)';
-            btnNext.classList.add('hidden');
+            feedback.textContent = "Incorreto. Ouça novamente e selecione as 3 palavras corretas."
+            feedback.style.color = "var(--nogo-red)"
+            btnNext.classList.add("hidden")
         }
     } else {
-        feedback.textContent = '';
-        btnNext.classList.add('hidden');
+        feedback.textContent = ""
+        btnNext.classList.add("hidden")
     }
 }
 
 function playSequentially(sounds, idx, onDone) {
-    if (idx >= sounds.length) { onDone(); return; }
-    const audio = new Audio(`src/audio/${sounds[idx]}.mp3`);
-    audio.onended = () => playSequentially(sounds, idx + 1, onDone);
-    audio.onerror = () => playSequentially(sounds, idx + 1, onDone);
-    audio.play().catch(() => playSequentially(sounds, idx + 1, onDone));
+    if (idx >= sounds.length) {
+        onDone()
+        return
+    }
+    const audio = new Audio(`src/audio/${sounds[idx]}.mp3`)
+    audio.onended = () => playSequentially(sounds, idx + 1, onDone)
+    audio.onerror = () => playSequentially(sounds, idx + 1, onDone)
+    audio.play().catch(() => playSequentially(sounds, idx + 1, onDone))
 }
 
 // --- CENTRAL DE COMANDOS (Super Listener) ---
-window.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    const code = e.code;
+window.addEventListener(
+    "keydown",
+    e => {
+        const key = e.key.toLowerCase()
+        const code = e.code
 
-    // 1. Código de Abortar
-    if (key.length === 1 && /[a-z0-9]/i.test(key)) {
-        abortBuffer = (abortBuffer + key).slice(-ABORT_CODE.length);
-        clearTimeout(abortBufferTimer);
-        abortBufferTimer = setTimeout(() => { abortBuffer = ""; }, 2000);
-        if (abortBuffer === ABORT_CODE) {
-            abortBuffer = "";
-            abortTest();
-            return;
-        }
-    }
-
-    if (code !== 'Space') return;
-    e.preventDefault();
-
-    // Bloqueio de Navegação (Cooldown / Escudos)
-    if (state.lockNavigation) return; 
-
-    // 2. Resposta do Teste
-    if (state.stage === 'TESTING') {
-        if (state.testActive && !state.hasResponded && state.presentationWindowOpen) {
-            const rt = Date.now() - state.reactionStartTime;
-            state.hasResponded = true;
-            recordData(true, rt);
-        }
-        return;
-    }
-
-    // 3. Navegação
-    if (!state.isRunning) {
-        if (state.stage === 'AUDIO_TEST') {
-            const btn = document.getElementById('btn-start-instructions');
-            if (btn && btn.offsetParent !== null && !btn.classList.contains('hidden')) {
-                btn.click();
+        // 1. Código de Abortar
+        if (key.length === 1 && /[a-z0-9]/i.test(key)) {
+            abortBuffer = (abortBuffer + key).slice(-ABORT_CODE.length)
+            clearTimeout(abortBufferTimer)
+            abortBufferTimer = setTimeout(() => {
+                abortBuffer = ""
+            }, 2000)
+            if (abortBuffer === ABORT_CODE) {
+                abortBuffer = ""
+                abortTest()
+                return
             }
-        } else if (state.stage === 'INSTRUCTIONS') {
-            startPhase(false); // Inicia Treino
-        } else if (state.stage === 'POST_TRIAL') {
-            startPhase(true); // Inicia Oficial
         }
-    }
-}, true);
 
+        if (code !== "Space") return
+        e.preventDefault()
+        triggerSpaceFlash()
+
+        // Bloqueio de Navegação (Cooldown / Escudos)
+        if (state.lockNavigation) return
+
+        // 2. Resposta do Teste
+        if (state.stage === "TESTING") {
+            if (state.testActive && !state.hasResponded && state.presentationWindowOpen) {
+                const rt = Date.now() - state.reactionStartTime
+                state.hasResponded = true
+                recordData(true, rt)
+            }
+            return
+        }
+
+        // 3. Navegação
+        if (!state.isRunning) {
+            if (state.stage === "AUDIO_TEST") {
+                const btn = document.getElementById("btn-start-instructions")
+                if (btn && btn.offsetParent !== null && !btn.classList.contains("hidden")) {
+                    btn.click()
+                }
+            } else if (state.stage === "INSTRUCTIONS") {
+                startPhase(false) // Inicia Treino
+            } else if (state.stage === "POST_TRIAL") {
+                startPhase(true) // Inicia Oficial
+            }
+        }
+    },
+    true,
+)
 
 // --- FLUXO DE TELAS E CLIQUES DE BOTÃO ---
-document.getElementById('btn-play-test').onclick = () => {
-    if (audioPlayingTest) return;
-    
-    const btnPlay = document.getElementById('btn-play-test');
-    
-    audioPlayingTest = true;
-    btnPlay.disabled = true;
-    btnPlay.innerHTML = '⏳ Reproduzindo...'; // Muda para a ampulheta
+document.getElementById("btn-play-test").onclick = () => {
+    if (audioPlayingTest) return
+
+    const btnPlay = document.getElementById("btn-play-test")
+
+    audioPlayingTest = true
+    btnPlay.disabled = true
+    btnPlay.innerHTML = "⏳ Reproduzindo..." // Muda para a ampulheta
 
     playSequentially(TEST_WORDS, 0, () => {
-        audioPlayingTest = false;
-        btnPlay.disabled = false;
-        btnPlay.innerHTML = '▶ REPRODUZIR NOVAMENTE'; // Retorna com o novo texto
-        audioPlayed = true;
-        checkAudioTest();
-    });
-};
+        audioPlayingTest = false
+        btnPlay.disabled = false
+        btnPlay.innerHTML = "▶ REPRODUZIR NOVAMENTE" // Retorna com o novo texto
+        audioPlayed = true
+        checkAudioTest()
+    })
+}
 
-document.getElementById('btn-start-instructions').onclick = () => {
-    state.stage = 'INSTRUCTIONS';
-    render();
-};
+document.getElementById("btn-start-instructions").onclick = () => {
+    state.stage = "INSTRUCTIONS"
+    render()
+}
 
-document.getElementById('btn-start-test').onclick = () => {
-    if (!state.lockNavigation) startPhase(false);
-};
+document.getElementById("btn-start-test").onclick = () => {
+    if (!state.lockNavigation) startPhase(false)
+}
 
-document.getElementById('btn-start-official').onclick = () => {
-    if (!state.lockNavigation) startPhase(true);
-};
+document.getElementById("btn-start-official").onclick = () => {
+    if (!state.lockNavigation) startPhase(true)
+}
 
 // --- NÚCLEO DO TESTE (com textinho - funciona como escudo - de "Prepare-se") ---
-function startPhase(isOfficial) {
-    state.seq = isOfficial ? SEQ_OFICIAL : SEQ_TRIAL;
-    state.isOfficial = isOfficial;
-    state.currentIdx = 0;
-    state.results = [];
-    state.isRunning = true;
-    state.aborted = false;
-    state.stage = 'TESTING';
-    render();
+function triggerSpaceFlash() {
+    const icon = document.getElementById("audio-icon-test")
+    if (!icon) return
 
-    // Aciona o texto "Prepare-se"
-    const shield = document.getElementById('prepare-shield');
-    const icon = document.getElementById('audio-icon-test');
-    
+    icon.classList.remove("space-flash")
+    void icon.offsetWidth
+    icon.classList.add("space-flash")
+
+    setTimeout(() => {
+        icon.classList.remove("space-flash")
+    }, 260)
+}
+
+function startPhase(isOfficial) {
+    state.seq = isOfficial ? SEQ_OFICIAL : SEQ_TRIAL
+    state.isOfficial = isOfficial
+    state.currentIdx = 0
+    state.results = []
+    state.isRunning = true
+    state.aborted = false
+    state.stage = "TESTING"
+    render()
+
+    const shield = document.getElementById("prepare-shield")
+    const icon = document.getElementById("audio-icon-test")
+
     if (shield && icon) {
-        shield.style.display = 'block';
-        icon.style.display = 'none';
+        shield.style.display = "flex"
+        shield.style.opacity = "1"
+        icon.style.display = "none"
     }
 
     // Bloqueia o teclado até o áudio realmente começar
-    state.lockNavigation = true; 
+    state.lockNavigation = true
 
     setTimeout(() => {
-        if (state.aborted) return;
-        
+        if (state.aborted) return
+
         if (shield && icon) {
-            shield.style.display = 'none';
-            icon.style.display = 'block';
+            shield.style.display = "none"
+            icon.style.display = "flex"
         }
-        
-        state.lockNavigation = false;
-        startMainTest();
-    }, 2000); // 2 segundos de "escudo" visual
+
+        state.lockNavigation = false
+        startMainTest()
+    }, 2000) // 2 segundos de "escudo" visual
 }
 
 function startMainTest() {
-    state.testActive = true;
-    runTrial();
+    state.testActive = true
+    runTrial()
 }
 
 function runTrial() {
-    if (state.aborted) return;
+    if (state.aborted) return
     if (state.currentIdx >= state.seq.length) {
-        finishTest();
-        return;
+        finishTest()
+        return
     }
 
-    const currentWord = state.seq[state.currentIdx];
-    const audio = new Audio(`src/audio/${currentWord}.mp3`);
-    currentAudio = audio;
+    const currentWord = state.seq[state.currentIdx]
+    const audio = new Audio(`src/audio/${currentWord}.mp3`)
+    currentAudio = audio
 
-    state.hasResponded = false;
-    state.presentationWindowOpen = true;
-    state.reactionStartTime = Date.now();
+    state.hasResponded = false
+    state.presentationWindowOpen = true
+    state.reactionStartTime = Date.now()
 
-    audio.play().catch(() => {});
+    audio.play().catch(() => {})
 
     const advance = () => {
-        if (state.aborted) return;
-        state.presentationWindowOpen = false;
-        if (!state.hasResponded) recordData(false, 0);
-        state.currentIdx++;
-        setTimeout(runTrial, INTERVAL_TIME);
-    };
+        if (state.aborted) return
+        state.presentationWindowOpen = false
+        if (!state.hasResponded) recordData(false, 0)
+        state.currentIdx++
+        setTimeout(runTrial, INTERVAL_TIME)
+    }
 
-    audio.onended = advance;
-    audio.onerror = advance;
+    audio.onended = advance
+    audio.onerror = advance
 }
 
 function recordData(pressed, rt) {
-    const word = state.seq[state.currentIdx];
-    const isNoGo = (word === "sim");
-    const status = isNoGo ? (pressed ? "E" : "OK") : (pressed ? "A" : "O");
-    state.results.push({ word, isNoGo, pressed, reactionTime: rt, status });
+    const word = state.seq[state.currentIdx]
+    const isNoGo = word === "sim"
+    const status = isNoGo ? (pressed ? "E" : "OK") : pressed ? "A" : "O"
+    state.results.push({ word, isNoGo, pressed, reactionTime: rt, status })
 }
 
 function finishTest() {
-    state.testActive = false;
-    state.isRunning = false;
-    currentAudio = null;
+    state.testActive = false
+    state.isRunning = false
+    currentAudio = null
 
     // Escudo Pós-Teste (Bloqueia o ESPAÇO por 1.5s contra ansiedade/reflexo do paciente)
-    state.lockNavigation = true;
+    state.lockNavigation = true
     setTimeout(() => {
         // Se já tiver ido para o POST_TRIAL, o startCoolDown() assume o controle
-        if (state.stage !== 'POST_TRIAL') {
-            state.lockNavigation = false; 
+        if (state.stage !== "POST_TRIAL") {
+            state.lockNavigation = false
         }
-    }, 1500);
+    }, 1500)
 
     if (state.isOfficial) {
-        state.stage = 'RESULTS';
-        render();
+        state.stage = "RESULTS"
+        render()
     } else {
-        state.stage = 'POST_TRIAL';
-        render(); // O render acionará o startCoolDown automaticamente
+        state.stage = "POST_TRIAL"
+        render() // O render acionará o startCoolDown automaticamente
     }
 }
 
 function startCoolDown() {
-    state.lockNavigation = true;
-    const btnOfficial = document.getElementById('btn-start-official');
-    let timer = 10;
-    
-    btnOfficial.disabled = true;
-    btnOfficial.style.opacity = "0.5";
-    btnOfficial.innerText = `AGUARDE (${timer}s)`;
+    state.lockNavigation = true
+    const btnOfficial = document.getElementById("btn-start-official")
+    let timer = 10
+
+    btnOfficial.disabled = true
+    btnOfficial.style.opacity = "0.5"
+    btnOfficial.innerText = `AGUARDE (${timer}s)`
 
     const countdown = setInterval(() => {
         // Interrompe se o teste for abortado durante o cooldown
-        if (state.aborted || state.stage !== 'POST_TRIAL') {
-            clearInterval(countdown);
-            return; 
+        if (state.aborted || state.stage !== "POST_TRIAL") {
+            clearInterval(countdown)
+            return
         }
 
-        timer--;
-        btnOfficial.innerText = `AGUARDE (${timer}s)`;
-        
+        timer--
+        btnOfficial.innerText = `AGUARDE (${timer}s)`
+
         if (timer <= 0) {
-            clearInterval(countdown);
-            state.lockNavigation = false;
-            btnOfficial.disabled = false;
-            btnOfficial.style.opacity = "1";
-            btnOfficial.innerText = "COMEÇAR ETAPA OFICIAL (ESPAÇO)";
+            clearInterval(countdown)
+            state.lockNavigation = false
+            btnOfficial.disabled = false
+            btnOfficial.style.opacity = "1"
+            btnOfficial.innerText = "COMEÇAR ETAPA OFICIAL (ESPAÇO)"
         }
-    }, 1000);
+    }, 1000)
 }
 
 function abortTest() {
-    if (!state.isRunning) return;
-    state.aborted = true;
-    state.testActive = false;
-    state.presentationWindowOpen = false;
-    state.isRunning = false;
-    state.lockNavigation = false;
-    
+    if (!state.isRunning) return
+    state.aborted = true
+    state.testActive = false
+    state.presentationWindowOpen = false
+    state.isRunning = false
+    state.lockNavigation = false
+
     if (currentAudio) {
-        currentAudio.onended = null;
-        currentAudio.onerror = null;
-        try { currentAudio.pause(); } catch (_) {}
-        currentAudio = null;
+        currentAudio.onended = null
+        currentAudio.onerror = null
+        try {
+            currentAudio.pause()
+        } catch (_) {}
+        currentAudio = null
     }
-    
+
     if (!state.results.length) {
-        location.reload();
-        return;
+        location.reload()
+        return
     }
-    
-    state.stage = 'RESULTS';
-    render();
+
+    state.stage = "RESULTS"
+    render()
 }
 
 // --- GERAÇÃO DE CSV ---
 function downloadCSV() {
-    const fields = ['indice', 'palavra', 'tipo', 'pressionou', 'tempo_reacao_ms', 'status'];
+    const fields = ["indice", "palavra", "tipo", "pressionou", "tempo_reacao_ms", "status"]
     const rows = state.results.map((r, i) => [
         i + 1,
         r.word,
-        r.isNoGo ? 'No-Go' : 'Go',
-        r.pressed ? 'sim' : 'nao',
+        r.isNoGo ? "No-Go" : "Go",
+        r.pressed ? "sim" : "nao",
         r.reactionTime,
-        r.status
-    ]);
-    const headerRow = ['campo', ...rows.map((_, i) => i + 1)];
-    const fieldRows = fields.map((field, fi) => [field, ...rows.map(row => row[fi])]);
-    const csv = [headerRow, ...fieldRows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resultados-go-nogo-auditivo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        r.status,
+    ])
+    const headerRow = ["campo", ...rows.map((_, i) => i + 1)]
+    const fieldRows = fields.map((field, fi) => [field, ...rows.map(row => row[fi])])
+    const csv = [headerRow, ...fieldRows].map(row => row.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `resultados-go-nogo-auditivo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
 }
 
-document.getElementById('btn-download-csv').onclick = downloadCSV;
+document.getElementById("btn-download-csv").onclick = downloadCSV
 
-render();
+render()
