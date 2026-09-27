@@ -9,7 +9,23 @@
 <body>
     <div id="app-container" class="container">
         
-        <section id="screen-audio-test" class="screen">
+        <!-- Tela Inicial: Identificação -->
+        <section id="screen-name" class="screen">
+            <div class="card">
+                <h1 class="title" style="margin-bottom: 0;">Bem-vindo(a) ao Experimento</h1>
+                <h2 class="title" style="font-size: 1.8rem; margin-top: 10px; color: var(--text);">Go / No-Go Auditivo</h2>
+                <p style="margin-bottom: 2rem; font-size: 1.1rem; color: var(--text-dim);">Para começar, por favor, digite seu ID ou nome.</p>
+                
+                <input type="text" id="participant-name-input" class="input-name" placeholder="Digite seu nome ou ID..." autocomplete="off">
+                
+                <div style="display: flex; justify-content: center; width: 100%;">
+                    <button id="btn-submit-name" class="btn-main">AVANÇAR PARA TESTE DE ÁUDIO</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Teste de Áudio -->
+        <section id="screen-audio-test" class="screen hidden">
             <div class="card">
                 <h2 class="title" style="font-size: 2rem;">Teste de Áudio</h2>
                 <p style="margin-bottom: 20px;">Clique no botão para ouvir e selecione as 3 palavras ditas abaixo:</p>
@@ -25,6 +41,7 @@
             </div>
         </section>
 
+        <!-- Instruções -->
         <section id="screen-instructions" class="screen hidden">
             <div class="card">
                 <h2 class="title">Treino - Go / No-Go Auditivo</h2>
@@ -61,6 +78,7 @@
             </div>
         </section>
 
+        <!-- Intervalo Pós-Treino -->
         <section id="screen-post-trial" class="screen hidden">
             <div class="card" style="text-align:center">
                 <h2 class="title">Treino Finalizado</h2>
@@ -71,28 +89,28 @@
             </div>
         </section>
 
+        <!-- Tela do Teste Ativo -->
         <section id="screen-test-area" class="screen hidden" style="max-width: 100%;">
-            
-            <!-- injetamos as larguras de 95vw e 1350px do Span Auditivo direto no card -->
             <div class="card" style="width: 95vw; max-width: 1350px; min-height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">  
-                <!-- Tela de Prepare-se (Pulsante) -->
                 <div id="prepare-shield" class="animate-pulse" style="display: none;">
                     <h2 class="title" style="font-size: 3rem; margin: 0;">Prepare-se!</h2>
                 </div>
-                <!-- Tela do Alto-Falante (Pulsante e Ciano) -->
                 <div id="audio-icon-test" style="display: none;">
                     <div class="speaker-emoji animate-pulse">🔊</div>
                 </div>
             </div>
         </section>
 
+        <!-- Resultados (Envio Automático) -->
         <section id="screen-results" class="screen hidden">
             <div class="card">
-                <h2 class="title">Teste Concluído</h2>
-                <p style="margin-bottom: 20px;">Clique no botão abaixo para baixar o arquivo CSV com os resultados.</p>
+                <h1 class="title" style="font-size: 2.25rem;">Você finalizou o teste!</h1>
+                <p id="email-status-text" style="margin-bottom: 2.5rem; font-weight: 600; color: var(--text-dim); font-size: 1.1rem;">⏳ Processando resultados...</p>
                 
-                <button id="btn-download-csv" class="btn-main">BAIXAR RESULTADOS (CSV)</button>
-                <button onclick="location.reload()" class="btn-main" style="margin-top:15px; background: #334155; color: var(--text);">REINICIAR</button>
+                <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; margin: 0 auto;">
+                    <button id="btn-copy-bkp" class="btn-secondary" style="margin: 0; width: 100%;">COPIAR DADOS BRUTOS (BKP)</button>
+                    <button id="btn-exit" class="btn-secondary" style="margin: 0; width: 100%; background: var(--border);">SAIR</button>
+                </div>
             </div>
         </section>
 
