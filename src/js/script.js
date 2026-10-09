@@ -416,18 +416,18 @@ async function sendResultsByEmail() {
     statusText.textContent = '⏳ Enviando resultados para o servidor...';
 
     const fields = ["indice", "palavra", "tipo", "pressionou", "tempo_reacao_ms", "status"];
+    
     const rows = state.results.map((r, i) => [
         i + 1,
         r.word,
         r.isNoGo ? "No-Go" : "Go",
         r.pressed ? "sim" : "nao",
         r.reactionTime,
-        r.status,
-    ]);
+        r.status
+    ].join(';'));
     
-    const headerRow = ["campo", ...rows.map((_, i) => i + 1)];
-    const fieldRows = fields.map((field, fi) => [field, ...rows.map(row => row[fi])]);
-    const csvContent = [headerRow, ...fieldRows].map(row => row.join(",")).join("\n");
+    const headerRow = fields.join(';');
+    const csvContent = [headerRow, ...rows].join('\n');
 
     try {
         const response = await fetch('/api/enviar', {
@@ -455,20 +455,20 @@ async function sendResultsByEmail() {
 // --- BACKUP MANUAL ---
 function copyToClipboard() {
     const fields = ["indice", "palavra", "tipo", "pressionou", "tempo_reacao_ms", "status"];
+    
     const rows = state.results.map((r, i) => [
         i + 1,
         r.word,
         r.isNoGo ? "No-Go" : "Go",
         r.pressed ? "sim" : "nao",
         r.reactionTime,
-        r.status,
-    ]);
+        r.status
+    ].join('\t'));
     
-    const headerRow = ["campo", ...rows.map((_, i) => i + 1)];
-    const fieldRows = fields.map((field, fi) => [field, ...rows.map(row => row[fi])]);
-    const csvContent = [headerRow, ...fieldRows].map(row => row.join("\t")).join("\n");
+    const headerRow = fields.join('\t');
+    const clipText = [headerRow, ...rows].join('\n');
     
-    navigator.clipboard.writeText(csvContent).then(() => {
+    navigator.clipboard.writeText(clipText).then(() => {
         alert("Resultados copiados! Cole (Ctrl+V) no Excel.");
     }).catch(err => {
         alert("Erro ao copiar.");
