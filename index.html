@@ -44,11 +44,10 @@
         <!-- Instruções -->
         <section id="screen-instructions" class="screen hidden">
             <div class="card">
-                <h2 class="title">Treino - Go / No-Go Auditivo</h2>
+                <h2 class="title">Go / No-go Auditivo</h2>
                 
                 <div class="instructions-content" style="text-align: center;">
-                    <p style="text-align: center; margin-bottom: 10px;">Neste teste você vai ouvir uma sequência de palavras em áudio. Preste bastante atenção.</p>
-                    <p style="text-align: center; margin-bottom: 20px; color: var(--text-dim);">Você fará primeiro um <strong>treino</strong> de 20 palavras. Em seguida começa o <strong>teste oficial</strong> com 300 palavras.</p>
+                    <p style="text-align: center; margin-bottom: 20px;">Neste teste você vai ouvir uma sequência de palavras em áudio. Preste bastante atenção.</p>
 
                     <div class="rules-container">
                         <div class="rule go" style="flex-direction: column; text-align: center; justify-content: center;">
@@ -82,7 +81,7 @@
         <section id="screen-post-trial" class="screen hidden">
             <div class="card" style="text-align:center">
                 <h2 class="title">Treino Finalizado</h2>
-                <p style="margin-bottom: 20px; color: var(--text-dim);">Prepare-se para o teste oficial.</p>
+                <p style="margin-bottom: 20px; color: var(--text-dim);">Prepare-se para a etapa de teste.</p>
                 
                 <p id="timer-msg" style="margin-bottom: 15px;">O botão será liberado em:</p>
                 <button id="btn-start-official" class="btn-main" disabled>AGUARDE</button>
@@ -104,13 +103,8 @@
         <!-- Resultados (Envio Automático) -->
         <section id="screen-results" class="screen hidden">
             <div class="card">
-                <h1 class="title" style="font-size: 2.25rem;">Você finalizou o teste!</h1>
-                <p id="email-status-text" style="margin-bottom: 2.5rem; font-weight: 600; color: var(--text-dim); font-size: 1.1rem;">⏳ Processando resultados...</p>
-                
-                <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; margin: 0 auto;">
-                    <button id="btn-copy-bkp" class="btn-secondary" style="margin: 0; width: 100%;">COPIAR DADOS BRUTOS (BKP)</button>
-                    <button id="btn-exit" class="btn-secondary" style="margin: 0; width: 100%; background: var(--border);">SAIR</button>
-                </div>
+                <h1 class="title" style="font-size: 2.25rem;">Teste finalizado.</h1>
+                <p id="email-status-text" style="font-weight: 600; color: var(--text-dim); font-size: 1.1rem;">⏳ Processando resultados...</p>
             </div>
         </section>
 

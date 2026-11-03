@@ -45,7 +45,7 @@ const WORD_LABELS = {
     "vos": "Vós"
 };
 
-const INTERVAL_TIME = 1000;
+const INTERVAL_TIME = 700;
 const TEST_WORDS = ["sim", "pe", "dor"];
 
 let state = {
@@ -113,9 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(inputName) inputName.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') submitName();
     });
-
-    document.getElementById('btn-copy-bkp').onclick = copyToClipboard;
-    document.getElementById('btn-exit').onclick = () => location.reload();
 });
 
 // --- SETUP DO GRID DE ÁUDIO ---
@@ -320,7 +317,7 @@ function runTrial() {
     const advance = () => {
         if (state.aborted) return;
         state.presentationWindowOpen = false;
-        if (!state.hasResponded) recordData(false, 0);
+        if (!state.hasResponded) recordData(false, null);
         state.currentIdx++;
         setTimeout(runTrial, INTERVAL_TIME);
     };
@@ -379,7 +376,7 @@ function startCoolDown() {
             state.lockNavigation = false;
             btnOfficial.disabled = false;
             btnOfficial.style.opacity = "1";
-            btnOfficial.innerText = "COMEÇAR ETAPA OFICIAL (ESPAÇO)";
+            btnOfficial.innerText = "COMEÇAR TESTE (ESPAÇO)";
         }
     }, 1000);
 }
@@ -422,7 +419,7 @@ async function sendResultsByEmail() {
         r.word,
         r.isNoGo ? "No-Go" : "Go",
         r.pressed ? "sim" : "nao",
-        r.reactionTime,
+        r.reactionTime ?? '',
         r.status
     ].join(';'));
     
@@ -447,32 +444,9 @@ async function sendResultsByEmail() {
         }
     } catch (error) {
         console.error("Erro:", error);
-        statusText.innerHTML = '❌ Erro no envio automático. Por favor, clique em "COPIAR DADOS BRUTOS".';
+        statusText.innerHTML = '❌ Erro no envio automático. Por favor, avise o avaliador.';
         statusText.style.color = 'var(--nogo-red)';
     }
-}
-
-// --- BACKUP MANUAL ---
-function copyToClipboard() {
-    const fields = ["indice", "palavra", "tipo", "pressionou", "tempo_reacao_ms", "status"];
-    
-    const rows = state.results.map((r, i) => [
-        i + 1,
-        r.word,
-        r.isNoGo ? "No-Go" : "Go",
-        r.pressed ? "sim" : "nao",
-        r.reactionTime,
-        r.status
-    ].join('\t'));
-    
-    const headerRow = fields.join('\t');
-    const clipText = [headerRow, ...rows].join('\n');
-    
-    navigator.clipboard.writeText(clipText).then(() => {
-        alert("Resultados copiados! Cole (Ctrl+V) no Excel.");
-    }).catch(err => {
-        alert("Erro ao copiar.");
-    });
 }
 
 render();
