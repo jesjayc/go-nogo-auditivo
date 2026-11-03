@@ -34,7 +34,7 @@ const SEQ_OFICIAL = [
     "vou","lar","cor","sol","mar","faz","nos","sim","pe","bom",
     "chao","sou","rei","sim","sim","vem","sim","um","sim","vos",
     "sim","sim","vou","mao","dor","pao","luz","sim","vou","lar"
-];
+].slice(0,200);
 
 const WORD_LABELS = {
     "sim": "Sim", "nao": "Não", "nos": "Nós", "rei": "Rei", "pe": "Pé",
