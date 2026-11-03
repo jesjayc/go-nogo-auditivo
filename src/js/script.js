@@ -315,11 +315,13 @@ function runTrial() {
     audio.play().catch(() => {});
 
     const advance = () => {
-        if (state.aborted) return;
-        state.presentationWindowOpen = false;
-        if (!state.hasResponded) recordData(false, null);
-        state.currentIdx++;
-        setTimeout(runTrial, INTERVAL_TIME);
+        setTimeout(() => {
+            if (state.aborted) return;
+            state.presentationWindowOpen = false;
+            if (!state.hasResponded) recordData(false, null);
+            state.currentIdx++;
+            runTrial();
+        }, INTERVAL_TIME);
     };
 
     audio.onended = advance;
