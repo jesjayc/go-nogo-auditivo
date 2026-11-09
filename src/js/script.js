@@ -46,7 +46,7 @@ const WORD_LABELS = {
 };
 
 const AUDIO_TIME   = 500;                      // duração da palavra (ms)
-const SILENCE_TIME = 1500;                     // em situações futuras, somente mudar o valor daqui
+const SILENCE_TIME = 1000;                     // em situações futuras, somente mudar o valor daqui
 const INTERVAL_TIME = AUDIO_TIME + SILENCE_TIME;
 const audioCtx = new AudioContext(); // o "motor de som", um só para a página toda
 const buffers = {};                  // "sim" → AudioBuffer (som já decodificado)
@@ -74,7 +74,6 @@ let state = {
 
 let audioPlayingTest = false;
 let audioPlayed = false;
-let currentAudio = null;
 
 const ABORT_CODE = "0001"; // Padronizado para os 4 dígitos
 let abortBuffer = "";
@@ -292,7 +291,17 @@ function audioParaPerf(tAudio) {
 }
 
 async function startPhase(isOfficial) {
+    if(state.isRunning) return;
     state.isRunning = true;
+    try {
+        await audioCtx.resume();
+        await carregamento;
+    } catch (erro) {
+        console.error(erro);
+        state.isRunning = false;   // libera para tentar de novo
+        alert("Não foi possível carregar os áudios. Avise o avaliador.");
+        return;
+    }
     await audioCtx.resume();
     await carregamento;
     state.seq = isOfficial ? SEQ_OFICIAL : SEQ_TRIAL;
@@ -387,7 +396,6 @@ function recordData(pressed, rt) {
 function finishTest() {
     state.testActive = false;
     state.isRunning = false;
-    currentAudio = null;
 
     state.lockNavigation = true;
     setTimeout(() => {
@@ -439,13 +447,6 @@ function abortTest() {
     state.presentationWindowOpen = false;
     state.isRunning = false;
     state.lockNavigation = false;
-
-    if (currentAudio) {
-        currentAudio.onended = null;
-        currentAudio.onerror = null;
-        try { currentAudio.pause(); } catch (_) {}
-        currentAudio = null;
-    }
 
     if (!state.results.length) {
         location.reload();
