@@ -45,7 +45,15 @@ const WORD_LABELS = {
     "vos": "Vós"
 };
 
-const INTERVAL_TIME = 700;
+const AUDIO_TIME   = 500;                      // duração da palavra (ms)
+const SILENCE_TIME = 1500;                     // em situações futuras, somente mudar o valor daqui
+const INTERVAL_TIME = AUDIO_TIME + SILENCE_TIME;
+const audioCtx = new AudioContext(); // o "motor de som", um só para a página toda
+const buffers = {};                  // "sim" → AudioBuffer (som já decodificado)
+let fontes = [];                     // os sons agendados (para poder cancelar no abortar)
+let t0Audio;                         // começo da palavra 0, no relógio do ÁUDIO (segundos)
+let t0;                             // começo do teste, no relógio do JS (milissegundos)
+let carregamento;
 const TEST_WORDS = ["sim", "pe", "dor"];
 
 let state = {
@@ -94,10 +102,12 @@ function render() {
 
 // --- CONTROLE DA TELA DE IDENTIFICAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
+    carregamento = carregarAudios(); // inicia o carregamento dos audios em segundo plano
     const inputName = document.getElementById('participant-name-input');
     const btnSubmitName = document.getElementById('btn-submit-name');
 
     const submitName = () => {
+        audioCtx.resume(); // garante que o áudio continue funcionando, antes tava com .catch(() => {}); se quiser adicionar de volta depois de programar, à vontade
         const val = inputName.value.trim();
         if (!val) {
             alert("Por favor, digite seu nome ou ID para começar o teste.");
@@ -118,6 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- SETUP DO GRID DE ÁUDIO ---
 const audioGrid = document.getElementById("audio-options");
 const audioList = ["sim", "nos", "rei", "pe", "chao", "faz", "luz", "dor", "pao", "cor"];
+
+async function carregarAudios() {
+    const palavras = new Set([...SEQ_TRIAL, ...SEQ_OFICIAL, ...TEST_WORDS]);
+
+    await Promise.all([...palavras].map(async (palavra) => {
+        const resp = await fetch(`src/audio/${palavra}.wav`);
+        if (!resp.ok) throw new Error(`Falha ao carregar ${palavra}.wav`);
+        const bytes = await resp.arrayBuffer();
+        buffers[palavra] = await audioCtx.decodeAudioData(bytes);
+    }));
+}
 
 audioList.forEach(word => {
     const btn = document.createElement("div");
@@ -160,7 +181,7 @@ function playSequentially(sounds, idx, onDone) {
         onDone();
         return;
     }
-    const audio = new Audio(`src/audio/${sounds[idx]}.mp3`);
+    const audio = new Audio(`src/audio/${sounds[idx]}.wav`);
     audio.onended = () => playSequentially(sounds, idx + 1, onDone);
     audio.onerror = () => playSequentially(sounds, idx + 1, onDone);
     audio.play().catch(() => playSequentially(sounds, idx + 1, onDone));
@@ -196,7 +217,7 @@ window.addEventListener(
 
         if (state.stage === "TESTING") {
             if (state.testActive && !state.hasResponded && state.presentationWindowOpen) {
-                const rt = Date.now() - state.reactionStartTime;
+                const rt = e.timeStamp - state.reactionStartTime;
                 state.hasResponded = true;
                 recordData(true, rt);
             }
@@ -260,12 +281,24 @@ function triggerSpaceFlash() {
     setTimeout(() => { icon.classList.remove("space-flash"); }, 260);
 }
 
-function startPhase(isOfficial) {
+function audioParaPerf(tAudio) {
+    const ts = audioCtx.getOutputTimestamp();
+    // ts.contextTime     = um instante no relógio do áudio (s)
+    // ts.performanceTime = o MESMO instante no relógio da página (ms)
+    if (!ts || ts.performanceTime === 0) {
+        return performance.now() + (tAudio - audioCtx.currentTime) * 1000;
+    }
+    return ts.performanceTime + (tAudio - ts.contextTime) * 1000;
+}
+
+async function startPhase(isOfficial) {
+    state.isRunning = true;
+    await audioCtx.resume();
+    await carregamento;
     state.seq = isOfficial ? SEQ_OFICIAL : SEQ_TRIAL;
     state.isOfficial = isOfficial;
     state.currentIdx = 0;
     state.results = [];
-    state.isRunning = true;
     state.aborted = false;
     state.stage = "TESTING";
     render();
@@ -292,40 +325,56 @@ function startPhase(isOfficial) {
     }, 2000);
 }
 
-function startMainTest() {
-    state.testActive = true;
-    runTrial();
+let trialTimer = null;
+
+function agendar(i){
+    const alvo = t0 + i * INTERVAL_TIME;
+    const espera = alvo - performance.now();
+    trialTimer = setTimeout(() => {
+        runTrial(i);
+    }, Math.max(0, espera));
 }
 
-function runTrial() {
+function startMainTest() {
+    state.testActive = true;
+
+    t0Audio = audioCtx.currentTime + 0.2;  // começa daqui a 200 ms (margem de segurança)
+
+    fontes = state.seq.map((palavra, i) => {
+        const fonte = audioCtx.createBufferSource(); // o "tocador" (descartável)
+        fonte.buffer = buffers[palavra];
+        fonte.connect(audioCtx.destination);         // liga na saída de som
+        fonte.start(t0Audio + i * INTERVAL_TIME / 1000);  // horário exato, em SEGUNDOS
+        return fonte;
+    });
+
+    t0 = audioParaPerf(t0Audio);  // o mesmo instante, no relógio da página (ms)
+    agendar(0);                   // a "papelada" da palavra 0 dispara no t0
+}
+
+function runTrial(i) {
     if (state.aborted) return;
-    if (state.currentIdx >= state.seq.length) {
+
+    // (a) FECHA a palavra anterior (antes de mudar o currentIdx!)
+    if (i > 0) {
+        state.presentationWindowOpen = false;
+        if (!state.hasResponded) recordData(false, null);
+    }
+
+    // (b) checa se a lista acabou
+    if (i >= state.seq.length) {
         finishTest();
         return;
     }
 
-    const currentWord = state.seq[state.currentIdx];
-    const audio = new Audio(`src/audio/${currentWord}.mp3`);
-    currentAudio = audio;
-
+    // (c) ABRE a palavra i
+    state.currentIdx = i;
     state.hasResponded = false;
     state.presentationWindowOpen = true;
-    state.reactionStartTime = Date.now();
+    state.reactionStartTime = audioParaPerf(t0Audio + i * INTERVAL_TIME / 1000);
 
-    audio.play().catch(() => {});
-
-    const advance = () => {
-        setTimeout(() => {
-            if (state.aborted) return;
-            state.presentationWindowOpen = false;
-            if (!state.hasResponded) recordData(false, null);
-            state.currentIdx++;
-            runTrial();
-        }, INTERVAL_TIME);
-    };
-
-    audio.onended = advance;
-    audio.onerror = advance;
+    // (d) Agenda a próxima, pelo relógio
+    agendar(i + 1);
 }
 
 function recordData(pressed, rt) {
@@ -403,6 +452,10 @@ function abortTest() {
         return;
     }
 
+    fontes.forEach(f => { try { f.stop(); } catch (e) {} });
+    fontes = [];
+
+    clearTimeout(trialTimer);
     state.stage = "RESULTS";
     render();
     sendResultsByEmail();
