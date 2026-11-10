@@ -468,7 +468,7 @@ function abortTest() {
     state.isRunning = false;
     state.lockNavigation = false;
 
-    if (!state.results.length) {
+    if (!state.isOfficial || !state.results.length) {
         location.reload();
         return;
     }
