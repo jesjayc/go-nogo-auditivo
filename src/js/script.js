@@ -45,7 +45,7 @@ const WORD_LABELS = {
     "vos": "Vós"
 };
 
-const AUDIO_TIME   = 500;                      // duração da palavra (ms)
+const AUDIO_TIME = 500;                      // duração da palavra (ms)
 const SILENCE_TIME = 1000;                     // em situações futuras, somente mudar o valor daqui
 const INTERVAL_TIME = AUDIO_TIME + SILENCE_TIME;
 const audioCtx = new AudioContext(); // o "motor de som", um só para a página toda
@@ -180,10 +180,30 @@ function playSequentially(sounds, idx, onDone) {
         onDone();
         return;
     }
+
     const audio = new Audio(`src/audio/${sounds[idx]}.wav`);
-    audio.onended = () => playSequentially(sounds, idx + 1, onDone);
-    audio.onerror = () => playSequentially(sounds, idx + 1, onDone);
-    audio.play().catch(() => playSequentially(sounds, idx + 1, onDone));
+    let jaAvancou = false;
+
+    function avancar () {
+        if (jaAvancou) {
+            return;
+        }
+        else {
+            jaAvancou = true;
+            if (idx === sounds.length - 1) {
+                playSequentially(sounds, idx + 1, onDone);
+            }
+            else {
+                setTimeout(() => {
+                    playSequentially(sounds, idx + 1, onDone);
+                }, SILENCE_TIME);
+            }
+        }
+    }
+
+    audio.onended = () => avancar();
+    audio.onerror = () => avancar();
+    audio.play().catch(() => avancar());
 }
 
 // --- CENTRAL DE COMANDOS (Super Listener) ---
